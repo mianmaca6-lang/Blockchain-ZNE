@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Control - Colmena Financiera{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-800">Resumen de Operaciones</h2>
+    <p class="text-sm text-gray-500">Monitor de ingesta y clasificación automática de documentos.</p>
+</div>
+
+<!-- Tarjetas de Métricas -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Documentos</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_archivos }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Pendientes de Revisión</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ pendientes }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Clasificados (Check)</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ clasificados }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Reglas Aprendidas (Foso)</h3>
+        <p class="text-3xl font-bold text-gray-900 mt-2">{{ total_reglas }}</p>
+    </div>
+</div>
+
+<!-- Tabla de Últimos Registros -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-gray-800">Últimos Archivos Procesados</h3>
+        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition" onclick="alert('Llamando a subprocess...')">
+            Ejecutar Procesador Manual
+        </button>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
+                    <th class="px-6 py-3 border-b border-gray-200">ID</th>
+                    <th class="px-6 py-3 border-b border-gray-200">Nombre del Archivo</th>
+                    <th class="px-6 py-3 border-b border-gray-200">Estado</th>
+                    <th class="px-6 py-3 border-b border-gray-200">Texto Extraído (Extracto)</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-700 text-sm">
+                {% for archivo in ultimos_archivos %}
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100 last:border-0">
+                    <td class="px-6 py-4 font-medium">{{ archivo.id }}</td>
+                    <td class="px-6 py-4 text-gray-500">{{ archivo.nombre_archivo }}</td>
+                    <td class="px-6 py-4">
+                        {% if archivo.estado == 'check' %}
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">Clasificado</span>
+                        {% elif archivo.estado == 'input' %}
+                            <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">Pendiente</span>
+                        {% else %}
+                            <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-semibold">{{ archivo.estado }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 truncate max-w-xs" title="{{ archivo.texto_extraido }}">
+                        {{ archivo.texto_extraido[:50] ~ '...' if archivo.texto_extraido else 'Sin texto' }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                        No hay documentos registrados aún. Envíalos a través del Webhook.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

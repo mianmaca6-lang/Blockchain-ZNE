@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  api_colmena:
+    build: .
+    container_name: colmena_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      # Protege la base de datos
+      - ./data:/app/data
+      # Protege los archivos crudos y transcripciones
+      - ./Base Datos:/app/Base Datos
