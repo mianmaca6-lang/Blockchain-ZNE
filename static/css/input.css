@@ -1,3 +1,51 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4: indica dónde buscar clases (reemplaza "content" de tailwind.config.js) */
+@source "../../templates";
+@source "../js";
+
+/* Identidad visual "Colmena" */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-miel-50: #fffbeb;
+  --color-miel-100: #fef3c7;
+  --color-miel-200: #fde68a;
+  --color-miel-300: #fcd34d;
+  --color-miel-400: #fbbf24;
+  --color-miel-500: #f59e0b;
+  --color-miel-600: #d97706;
+  --color-miel-700: #b45309;
+
+  --color-tinta-700: #2a2522;
+  --color-tinta-800: #1f1b18;
+  --color-tinta-900: #161311;
+}
+
+@layer base {
+  body {
+    background-color: #faf8f5;
+  }
+}
+
+@layer components {
+  /* Patrón de panal sutil para fondos */
+  .bg-panal {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cpath fill='%23f59e0b' fill-opacity='0.08' d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/svg%3E");
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-stone-400 transition hover:bg-white/5 hover:text-white;
+  }
+  .nav-link.activo {
+    @apply bg-miel-500/10 text-miel-300 ring-1 ring-miel-500/20;
+  }
+
+  .tarjeta {
+    @apply rounded-2xl border border-stone-200/80 bg-white shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset;
+  }
+}

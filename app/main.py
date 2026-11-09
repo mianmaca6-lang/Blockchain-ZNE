@@ -1,13 +1,13 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+
 import subprocess
 import os
 
 # 1. Importar la base de datos, los modelos y los enrutadores
 from .database import engine
 from . import models
-from .routers import webhooks, dashboard
-
+from .routers import webhooks, dashboard, reglas
 # 2. Crear las tablas en SQLite automáticamente si no existen
 models.Base.metadata.create_all(bind=engine)
 
@@ -16,7 +16,7 @@ app = FastAPI(title="Colmena Financiera")
 # 3. Registrar las rutas en la aplicación
 app.include_router(webhooks.router)
 app.include_router(dashboard.router)
-
+app.include_router(reglas.router)
 # 4. Resolución de ruta absoluta para la carpeta static (sin la 's')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUTA_STATIC = os.path.join(BASE_DIR, "static")
