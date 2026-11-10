@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Cliente(Base):
     __tablename__ = "clientes"
@@ -77,3 +77,46 @@ class Transaccion(Base):
     cuenta_origen = Column(String)              # De dónde sale el dinero (Ej. "Bolsillo", "Banco")
     cuenta_destino = Column(String)             # A dónde va (Ej. "Gasto Comida", "Ahorros")
     fecha_hora = Column(String, default=lambda: datetime.now().isoformat())
+
+
+def _ahora_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+class Aprobacion(Base):
+    """
+    Aprobación multifirma (2 de 3) de una factura en Stellar.
+    Solo se guardan XDR y firmas públicas; jamás llaves secretas.
+    """
+    __tablename__ = "aprobaciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    registro_id = Column(Integer, ForeignKey("registros_archivos.id"), unique=True, nullable=False)
+    factura_hash = Column(String(64), nullable=False)
+    monto = Column(Float, default=0.0)
+    tx_hash = Column(String, unique=True, nullable=False)
+    xdr_base = Column(Text, nullable=False)
+    cuenta_origen = Column(String, nullable=False)
+    red = Column(String, nullable=False)
+    estado = Column(String, default="pendiente")  # pendiente, parcial, aprobada, enviada, error
+    umbral = Column(Integer, default=2)
+    error_detalle = Column(String, nullable=True)
+    expira_en = Column(String, nullable=False)
+    horizon_hash = Column(String, nullable=True)
+    creado_en = Column(String, default=_ahora_iso)
+    actualizado_en = Column(String, default=_ahora_iso, onupdate=_ahora_iso)
+
+    firmas = relationship("FirmaAprobacion", back_populates="aprobacion", cascade="all, delete-orphan")
+
+
+class FirmaAprobacion(Base):
+    __tablename__ = "firmas_aprobacion"
+    __table_args__ = (UniqueConstraint("aprobacion_id", "public_key", name="uq_firma_aprobacion_socio"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    aprobacion_id = Column(Integer, ForeignKey("aprobaciones.id"), nullable=False)
+    public_key = Column(String, nullable=False)
+    firma_b64 = Column(String, nullable=False)
+    creado_en = Column(String, default=_ahora_iso)
+
+    aprobacion = relationship("Aprobacion", back_populates="firmas")

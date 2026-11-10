@@ -3,3 +3,6 @@ uvicorn[standard]
 sqlalchemy
 jinja2
 python-multipart
+stellar-sdk>=11
+httpx
+pydantic>=2

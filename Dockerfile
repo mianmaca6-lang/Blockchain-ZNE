@@ -23,7 +23,7 @@ RUN mkdir -p /app/data /app/"Base Datos"/input /app/"Base Datos"/check
 COPY . /app/
 
 # Exponer el puerto para FastAPI
-EXPOSE 8000
+EXPOSE 8001
 
 # Ejecutar el servidor
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers"]
