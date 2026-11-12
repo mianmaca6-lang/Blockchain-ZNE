@@ -1,6 +1,24 @@
-# Blockchain-ZNE
+# Blockchain-ZNE — Colmena Financiera
 
-## Aprobaciones multifirma en Stellar (2 de 3)
+Arquitectura: **Telegram → n8n → FastAPI → Soroban**. Solo FastAPI firma y habla con Soroban.
+
+- Puesta en marcha, migraciones, respaldos y claves: [docs/OPERACION.md](docs/OPERACION.md)
+- Estado de Fases 0 y 1 (auditoría, cambios, pruebas, pendientes): [docs/INFORME_FASE_0_1.md](docs/INFORME_FASE_0_1.md)
+- Libro de socios y votaciones (diseño): [docs/ARQUITECTURA_SOCIOS.md](docs/ARQUITECTURA_SOCIOS.md)
+- Contrato `LibroPersonal`: [contratos/](contratos/)
+
+```bash
+pip install -r requirements-dev.txt && cp .env.example .env   # completar secretos
+python -m scripts.preparar_bd && uvicorn app.main:app --port 8001
+pytest                                  # pruebas backend
+cd contratos && cargo test              # pruebas del contrato
+```
+
+---
+
+## (REVISAR) Aprobaciones multifirma clásicas en Stellar (2 de 3)
+
+> Flujo anterior basado en `manage_data`. Se reemplaza por el contrato de socios en una fase posterior.
 
 Puerto de la API: **8001** (`docker compose up --build`). Copia `.env.example` a `.env` y completa:
 
@@ -18,11 +36,11 @@ Puerto de la API: **8001** (`docker compose up --build`). Copia `.env.example` a
 Las llaves secretas nunca se guardan en el servidor ni en disco.
 
 Configuración inicial (una sola vez, fuera del servidor):
-`STELLAR_SETUP_SECRET=S... STELLAR_SOCIOS=G1,G2,G3 python scripts/stellar_setup.py`
+`STELLAR_SETUP_SECRET=S... STELLAR_SOCIOS=G1,G2,G3 python scripts/REVISAR_stellar_setup.py`
 
 Flujo:
 1. `POST /api/aprobaciones` con `{"registro_id": 1, "monto": 1000}` crea la aprobación y devuelve `xdr_base`.
-2. Cada socio firma localmente: `SOCIO_SECRET=S... python scripts/stellar_firmar.py "<xdr_base>"`.
+2. Cada socio firma localmente: `SOCIO_SECRET=S... python scripts/REVISAR_stellar_firmar.py "<xdr_base>"`.
 3. Se sube cada XDR firmado con `POST /api/aprobaciones/{id}/firmas` (`{"xdr_firmado": "..."}`).
 4. Con 2 firmas válidas el estado pasa a `aprobada`; `POST /api/aprobaciones/{id}/enviar` la envía a Horizon.
 

@@ -26,4 +26,5 @@ COPY . /app/
 EXPOSE 8001
 
 # Ejecutar el servidor
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers"]
+# Primero respalda y migra la BD (Alembic); la API se niega a arrancar si el esquema no está en head.
+CMD ["sh", "-c", "python -m scripts.preparar_bd && exec uvicorn app.main:app --host 0.0.0.0 --port 8001 --proxy-headers"]

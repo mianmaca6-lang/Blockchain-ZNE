@@ -1,0 +1,22 @@
+# Evita que secretos y datos personales entren en la imagen (COPY . /app/)
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.env
+.env.*
+!.env.example
+secrets/
+data/
+backups/
+*.db
+*.db-*
+Base Datos/
+Programas/check/
+Programas/transcripciones/
+Programas/input/
+contratos/
+Documentacion/
+REVISAR_zne-stellar.patch

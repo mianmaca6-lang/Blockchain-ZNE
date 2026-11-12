@@ -1,16 +1,32 @@
-
 # Entorno y archivos locales
 venv/
 .venv/
 __pycache__/
 *.py[cod]
-.env
 .pytest_cache/
 
-# Bases de datos locales
-data/*.db
-data/*.db-shm
-data/*.db-wal
+# Secretos: nunca versionar. Solo .env.example (sin valores reales) va al repo.
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+*.secret
+*_secret*.txt
+
+# Bases de datos locales y respaldos (contienen información financiera personal)
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+backups/
+
+# Datos reales procedentes de WhatsApp (audios, imágenes, transcripciones). D1: NO versionar.
+Base Datos/
 
 # Ejecutables generados
 tailwindcss-linux-x64
@@ -18,3 +34,9 @@ tailwindcss-linux-x64
 # Datos privados de trabajo: conservar localmente
 Programas/check/
 Programas/transcripciones/
+Programas/input/
+
+# Rust / Soroban
+contratos/target/
+contratos/**/test_snapshots/
+*.wasm

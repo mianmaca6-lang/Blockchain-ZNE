@@ -1,5 +1,3 @@
-import os
-import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -10,13 +8,13 @@ from sqlalchemy.orm import Session
 # Importaciones relativas según la estructura del proyecto
 from ..database import get_db
 from ..models import RegistroArchivo
+from ..seguridad import verificar_token
 from ..services.foso_memoria import aplicar_memoria_adaptable
 
 router = APIRouter(prefix="/api/webhooks", tags=["Ingesta n8n"])
 
-# Mejor práctica: el token vive en una variable de entorno (COLMENA_API_TOKEN).
-# Si no existe, se usa el valor actual para no romper tu flujo de n8n.
-API_TOKEN = os.getenv("COLMENA_API_TOKEN", "TU_TOKEN_SECRETO_COLMENA_2026")
+# El token vive solo en la variable de entorno COLMENA_API_TOKEN (ver app/seguridad.py).
+# Ya no hay valor por defecto: el anterior estaba escrito en el código y era público.
 
 
 # 1. Esquema estricto: Lo que el nodo HTTP Request de n8n DEBE enviar
@@ -35,8 +33,7 @@ def recibir_datos_n8n(
     x_api_token: str = Header(None),
 ):
     # Seguridad básica para evitar inyecciones de terceros
-    if not secrets.compare_digest((x_api_token or "").encode(), API_TOKEN.encode()):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token no autorizado")
+    verificar_token(x_api_token)
 
     # 2. Consultar la "Memoria Adaptable" (El Foso): reglas del cliente + globales
     resultado = aplicar_memoria_adaptable(

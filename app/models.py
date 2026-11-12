@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, UniqueConstraint, LargeBinary, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime, timezone
@@ -83,6 +83,8 @@ def _ahora_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+# REVISAR: Aprobacion y FirmaAprobacion pertenecen a la multifirma clásica (manage_data).
+# Se reemplazan por el contrato Tesoreria + espejo `propuestas_compra` (docs/PLAN_SOROBAN.md, fase 4).
 class Aprobacion(Base):
     """
     Aprobación multifirma (2 de 3) de una factura en Stellar.
@@ -120,3 +122,153 @@ class FirmaAprobacion(Base):
     creado_en = Column(String, default=_ahora_iso)
 
     aprobacion = relationship("Aprobacion", back_populates="firmas")
+
+
+# =====================================================================================
+# FASE 1 — Libro personal privado y referencias Soroban
+# Reglas: ningún monto, categoría ni concepto personal en texto plano; ninguna llave
+# privada en la base de datos.
+# =====================================================================================
+
+ESTADOS_SINCRONIZACION = ("pendiente", "enviado", "confirmado", "error_reintentable", "error")
+
+
+class Usuario(Base):
+    """
+    Usuario común (llega por Telegram → n8n). No se guarda su id de Telegram en claro:
+    solo un HMAC con secreto del servidor, suficiente para reconocerlo en la siguiente
+    solicitud. El `seudonimo` es aleatorio (no deriva de su identidad) y es lo único
+    que se publica en Soroban.
+    """
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True)
+    canal = Column(String(20), nullable=False)
+    id_externo_hmac = Column(String(64), nullable=False, unique=True)
+    seudonimo = Column(String(64), nullable=False, unique=True)  # hex de 32 bytes
+    creado_en = Column(String, default=_ahora_iso, nullable=False)
+
+    registros = relationship("RegistroPersonal", back_populates="usuario")
+
+
+class TransaccionSoroban(Base):
+    """
+    Referencia a cada intento de transacción en Soroban (genérica: la usarán también
+    los libros de socios). Un registro puede tener varios intentos.
+    """
+    __tablename__ = "transacciones_soroban"
+    __table_args__ = (
+        CheckConstraint("estado IN ('preparada','enviada','exito','fallida','desconocido')", name="ck_tx_estado"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    contrato = Column(String(20), nullable=False)       # "libro_personal"
+    operacion = Column(String(30), nullable=False)      # "registrar"
+    estado = Column(String(12), nullable=False, default="preparada")
+    tx_hash = Column(String(64), nullable=True, index=True)
+    ledger = Column(Integer, nullable=True)
+    codigo_error = Column(String(60), nullable=True)    # código técnico, sin datos personales
+    creado_en = Column(String, default=_ahora_iso, nullable=False)
+    actualizado_en = Column(String, default=_ahora_iso, onupdate=_ahora_iso, nullable=False)
+
+
+class RegistroPersonal(Base):
+    """
+    Movimiento financiero personal. Todo el contenido financiero (tipo, monto, moneda,
+    categoría, concepto, fecha y nonce) va dentro de `contenido_cifrado` (AES-256-GCM).
+    En claro solo quedan datos técnicos: dueño, hash de integridad, estado e idempotencia.
+    """
+    __tablename__ = "registros_personales"
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "clave_idempotencia", name="uq_registro_idempotencia"),
+        CheckConstraint(
+            "estado_sincronizacion IN ('pendiente','enviado','confirmado','error_reintentable','error')",
+            name="ck_registro_estado",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
+    clave_idempotencia = Column(String(128), nullable=False)
+    # HMAC de la solicitud: detecta reutilizar la misma clave con otro contenido.
+    huella_solicitud = Column(String(64), nullable=False)
+    contenido_cifrado = Column(LargeBinary, nullable=False)  # nonce(12) || ciphertext+tag
+    version_clave = Column(Integer, nullable=False)
+    hash_integridad = Column(String(64), nullable=False, unique=True)  # hex SHA-256
+    estado_sincronizacion = Column(String(20), nullable=False, default="pendiente")
+    transaccion_soroban_id = Column(Integer, ForeignKey("transacciones_soroban.id"), nullable=True)
+    creado_en = Column(String, default=_ahora_iso, nullable=False)
+    actualizado_en = Column(String, default=_ahora_iso, onupdate=_ahora_iso, nullable=False)
+
+    usuario = relationship("Usuario", back_populates="registros")
+    transaccion_soroban = relationship("TransaccionSoroban")
+
+
+class HistorialOperacion(Base):
+    """Bitácora de auditoría. `detalle` nunca contiene datos financieros ni secretos."""
+    __tablename__ = "historial_operaciones"
+    __table_args__ = (Index("ix_historial_entidad", "entidad", "entidad_id"),)
+
+    id = Column(Integer, primary_key=True)
+    entidad = Column(String(30), nullable=False)
+    entidad_id = Column(Integer, nullable=True)
+    accion = Column(String(40), nullable=False)
+    resultado = Column(String(20), nullable=False)
+    detalle = Column(String(200), nullable=True)
+    creado_en = Column(String, default=_ahora_iso, nullable=False)
+
+
+# -------------------------------------------------------------------------------------
+# Libro de SOCIOS (transparente). Fase 1 solo define la estructura local (espejo).
+# La autoridad será un contrato Soroban separado (Tesoreria) en una fase posterior:
+# NO hay endpoints ni lógica on-chain de socios todavía. Ver docs/ARQUITECTURA_SOCIOS.md.
+# -------------------------------------------------------------------------------------
+
+class Socio(Base):
+    __tablename__ = "socios"
+
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String(80), nullable=False)
+    public_key = Column(String(56), nullable=False, unique=True)  # G... (nunca la secreta)
+    activo = Column(Boolean, nullable=False, default=True)
+    creado_en = Column(String, default=_ahora_iso, nullable=False)
+
+
+class Propuesta(Base):
+    """
+    Propuesta sujeta a votación (D7). `socios_habilitados` y `votos_requeridos` son una
+    foto tomada al crearla: cambios posteriores del padrón o de la modalidad no
+    alteran el umbral de propuestas ya abiertas (sin efectos retroactivos).
+    """
+    __tablename__ = "propuestas"
+    __table_args__ = (
+        CheckConstraint("tipo IN ('compra','cambiar_modalidad','agregar_socio')", name="ck_propuesta_tipo"),
+        CheckConstraint("modalidad IN ('unanimidad','mayoria_simple')", name="ck_propuesta_modalidad"),
+        CheckConstraint(
+            "estado IN ('abierta','aprobada','rechazada','ejecutada','cancelada','expirada')",
+            name="ck_propuesta_estado",
+        ),
+        CheckConstraint("votos_requeridos >= 1 AND votos_requeridos <= socios_habilitados", name="ck_propuesta_umbral"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    tipo = Column(String(20), nullable=False)
+    proponente_id = Column(Integer, ForeignKey("socios.id"), nullable=False)
+    datos_publicos = Column(Text, nullable=False)  # JSON con los datos acordados en claro
+    modalidad = Column(String(20), nullable=False)
+    socios_habilitados = Column(Integer, nullable=False)
+    votos_requeridos = Column(Integer, nullable=False)
+    estado = Column(String(12), nullable=False, default="abierta")
+    transaccion_soroban_id = Column(Integer, ForeignKey("transacciones_soroban.id"), nullable=True)
+    creado_en = Column(String, default=_ahora_iso, nullable=False)
+
+
+class Voto(Base):
+    __tablename__ = "votos"
+    __table_args__ = (UniqueConstraint("propuesta_id", "socio_id", name="uq_voto_unico"),)
+
+    id = Column(Integer, primary_key=True)
+    propuesta_id = Column(Integer, ForeignKey("propuestas.id"), nullable=False, index=True)
+    socio_id = Column(Integer, ForeignKey("socios.id"), nullable=False)
+    a_favor = Column(Boolean, nullable=False)
+    creado_en = Column(String, default=_ahora_iso, nullable=False)

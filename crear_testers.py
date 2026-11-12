@@ -1,7 +1,9 @@
-from app.database import engine, SessionLocal
-from app.models import Base, Tester
+# Requiere el esquema al día: ejecutar antes `python -m scripts.preparar_bd`.
+from app.database import SessionLocal
+from app.migraciones import exigir_esquema_actualizado
+from app.models import Tester
 
-Base.metadata.create_all(bind=engine)
+exigir_esquema_actualizado()
 db = SessionLocal()
 for i in range(1, 21):
     token_name = f"tester{i:02d}"
