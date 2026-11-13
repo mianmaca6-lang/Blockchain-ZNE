@@ -1,0 +1,40 @@
+El commit está listo, pero **el push falló porque GitHub pide iniciar sesión** y mi terminal no puede abrir esa ventana. No forcé nada ni intenté rodear la autenticación. Tienes que hacer el push tú, una sola vez, desde la terminal de VS Code (`Ctrl+ñ`):
+
+```powershell
+cd "$env:USERPROFILE\Downloads\Blockchain-ZNE-repo"
+git push -u origin fase-0-1-libro-personal
+```
+
+Se abrirá el navegador para entrar con la cuenta `mianmaca6-lang`. Cuando termine, en GitHub aparecerá el botón **"Compare & pull request"**: créalo, revísalo y fusiónalo con `main`.
+
+## El commit
+
+- **Rama:** `fase-0-1-libro-personal`.
+- **Commit:** `353f5e1`, autor `mianmaca6 <mianmaca6@gmail.com>`.
+- **Contenido:** 82 archivos (+6.944 / −266). Las 82 pruebas pasan sobre el clon.
+- **Carpeta:** está en `Downloads\Blockchain-ZNE-repo`. Tu carpeta de trabajo original no se tocó.
+- **`Base Datos/` deja de rastrearse.** Eran 22 audios y transcripciones de WhatsApp que **estaban publicados en GitHub**. En tu disco siguen intactos. Ojo: **siguen visibles en el historial**. Borrarlos de ahí exige reescribir el historial y forzar el push, y no lo haré sin que me lo pidas.
+- **Revisé que no se sube nada sensible:** no van `.env`, bases de datos, llaves, ni el archivo del prompt.
+- **`transcribir.py` no va en el commit, a propósito.** En GitHub hay dos copias, `Programas/` y `programas/`, que solo se diferencian en mayúsculas y en una línea. Windows no puede tener las dos a la vez y las mezcló al clonar, así que lo dejé tal como está en GitHub. Conviene borrar una de las dos desde Linux o desde la web de GitHub.
+
+## Paso a paso para desplegar
+
+El detalle completo, con todos los comandos, está en [docs/DESPLIEGUE.md](Blockchain-ZNE-main/docs/DESPLIEGUE.md), que también va en el commit. En resumen:
+
+1. **Subir el código:** haz el push de arriba y fusiona el pull request.
+2. **Respaldar la base de datos del servidor antes de desplegar (D4):** desde el contenedor que corre hoy, copia `data/colmena.db` a `backups/` con la API de backup de SQLite, y guarda una copia fuera del proyecto.
+3. **Preparar los secretos en el servidor:** crea `.env` a partir de `.env.example` y genera `COLMENA_API_TOKEN`, `COLMENA_CLAVE_CIFRADO` y `COLMENA_SECRETO_SEUDONIMO`. **Guarda la clave de cifrado fuera del servidor:** si se pierde, los registros personales no se pueden recuperar.
+4. **Desplegar el backend:** `git pull` y luego `docker compose up -d --build`. El contenedor respalda la base, adopta la base antigua sin perder datos y migra a la revisión 0002. Si algo falla, la API no arranca y puedes restaurar el respaldo.
+5. **Desplegar el contrato en Testnet**, en una máquina donde puedas instalar stellar-cli:
+   - Crea las llaves `colmena-admin` y `colmena-servicio` con `stellar keys generate`.
+   - Ejecuta `sh contratos/scripts/desplegar_testnet.sh`.
+   - Copia el ID del contrato al `.env` del servidor.
+   - Pon la llave de servicio como archivo en `secrets/` (nunca dentro del `.env`).
+6. **Conectar n8n:** un nodo HTTP Request a `POST /api/v1/registros`.
+   - El token va como credencial *Header Auth*.
+   - Usa `Idempotency-Key: telegram-<chat_id>-<message_id>`.
+   - El nodo de facturas también debe usar el token nuevo, porque el antiguo ya no funciona.
+7. **Verificar:**
+   - `/zine` responde 200.
+   - `alembic current` muestra `0002`.
+   - Un POST de prueba termina en `confirmado`, con un `tx_hash` que puedes ver en stellar.expert. Allí solo aparecen el seudónimo y el hash, nunca el monto.

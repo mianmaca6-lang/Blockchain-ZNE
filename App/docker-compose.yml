@@ -8,6 +8,7 @@ services:
     env_file: .env
     ports:
       - "8001:8001"
+    
     volumes:
       # Protege la base de datos
       - ./data:/app/data
@@ -17,3 +18,4 @@ services:
       - ./secrets:/app/secrets:ro
       # Protege los archivos crudos y transcripciones
       - ./Base Datos:/app/Base Datos
+    
